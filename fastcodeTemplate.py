@@ -36,17 +36,19 @@ def generate_graph(ifpath, ofpath, title, ylabel):
     X = data[:, 0]
     Xmin = np.min(X)
     Xmax = np.max(X)
+    print 'x in [%f, %f]' % (Xmin, Xmax)
 
     Y = data[:, 1:]
     Ymin = np.min(Y)
     Ymax = np.max(Y)
+    print 'y in [%f, %f]' % (Ymin, Ymax)
     (M, N) = Y.shape
 
-    n = data[:,0]
-    a = data[:,1]
-    b = data[:,2]
-    c = data[:,3]
-    d = data[:,4]
+    #n = data[:,0]
+    #a = data[:,1]
+    #b = data[:,2]
+    #c = data[:,3]
+    #d = data[:,4]
 
     # Parse labels
     with open(ifpath, 'r') as f:
@@ -117,6 +119,8 @@ def generate_graph(ifpath, ofpath, title, ylabel):
 
         # Stochastic selection of data point to label
         while True:
+            #print chk_grid
+
             j = random.randint(0, len(ys) - 1)  # Pick random point
             y = ys[j]
             x = X[j + excl_Nx]                  # We excluded boundary points,
@@ -125,9 +129,9 @@ def generate_graph(ifpath, ofpath, title, ylabel):
             d = grads[j]                    # Gradient at point
             s = 1 if d == 0 else np.sign(d) # Sign of gradient at point
 
-            d_ = math.sqrt(abs(d)) * .2
-            dsx = -s * (.2 + d_)
-            dsy =  s * (.35 + d_)
+            d_ = math.sqrt(abs(d)) * .3
+            dsx = -s * (.2*dX + d_)
+            dsy =  s * (.35*dY + d_)
 
             gj1 = round((y - _Ymin) / dY)
             gi1 = round((x - Xmin) / dX)
