@@ -64,7 +64,7 @@ def generate_graph(ifpath, ofpath, title, ylabel):
     # Create figure
     fig = plt.figure(facecolor = 'white')
     ax1 = plt.axes(axisbg = '#f0f0f0')
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.89, bottom=0.1)
+    plt.subplots_adjust(left=0.07, right=0.96, top=0.89, bottom=0.1)
 
     # Create plots with pre-defined labels.
     for i in range(N):
@@ -76,20 +76,23 @@ def generate_graph(ifpath, ofpath, title, ylabel):
 
     # Set title
     ax1.set_title(label = title,
-        size = 'x-large',
+        size = 'large',
+        weight = 'heavy',
+        fontstretch = 'semi-condensed',
         horizontalalignment = 'left',
         verticalalignment = 'bottom',
-        position = (0.01, 1.04),
+        position = (0.06, 1.03),
     )
 
     # Set labels
     ax1.set_xlabel(xlabel)
     ax1.set_ylabel(ylabel, rotation = 0,
         color = '#555555',
+        size = 'small',
         horizontalalignment='left',
         verticalalignment='bottom',
     )
-    ax1.yaxis.set_label_coords(0.01, 1.01)
+    ax1.yaxis.set_label_coords(0.06, 1.01)
 
     ## Set legend
     #box = ax1.get_position()
@@ -104,6 +107,7 @@ def generate_graph(ifpath, ofpath, title, ylabel):
     dY = (Ymax - Ymin) / M_g
     _Ymin = Ymin - dY
     _Ymax = Ymax + dY
+    plt.ylim((_Ymin, _Ymax)) # Set Y limits manually for boring or single-data plots
     dY = (_Ymax - _Ymin) / M_g
     dX = (Xmax - Xmin) / N_g
     for (j, _), y in np.ndenumerate(Y):
@@ -130,8 +134,9 @@ def generate_graph(ifpath, ofpath, title, ylabel):
             s = 1 if d == 0 else np.sign(d) # Sign of gradient at point
 
             d_ = math.sqrt(abs(d)) * .3
-            dsx = -s * (.2*dX + d_)
+            dsx = -s * (.2*dX)
             dsy =  s * (.35*dY + d_)
+            #print d, x, y, dsx, dsy, dX, dY
 
             gj1 = round((y - _Ymin) / dY)
             gi1 = round((x - Xmin) / dX)
@@ -140,7 +145,8 @@ def generate_graph(ifpath, ofpath, title, ylabel):
             gj3 = round((y - dsy - _Ymin) / dY)
             gi3 = round((x - dsx - Xmin) / dX)
             try: # Skip in case out-of-bounds error for indexing grid
-                if (chk_grid[gj1, gi1] < 2) and (chk_grid[gj2, gj2] < 1):
+                if gj1 >= 0 and gi1 >= 0 and gj2 >= 0 and gi2 >= 0 and \
+                   (chk_grid[gj1, gi1] < 2) and (chk_grid[gj2, gj2] < 1):
                     # Inc occupation count for self and 8 neighbours
                     chk_grid[gj2, gi2] += 1
                     chk_grid[gj2 + 1, gi2] += 1
@@ -157,7 +163,8 @@ def generate_graph(ifpath, ofpath, title, ylabel):
             except: pass
 
             try:
-                if (chk_grid[gj1, gi1] < 2) and (chk_grid[gj3, gi3] < 1):
+                if gj1 >= 0 and gi1 >= 0 and gj3 >= 0 and gi3 >= 0 and \
+                   (chk_grid[gj1, gi1] < 2) and (chk_grid[gj3, gi3] < 1):
                     chk_grid[gj3, gi3] += 1
                     chk_grid[gj3 + 1, gi3] += 1
                     chk_grid[gj3 - 1, gi3] += 1
