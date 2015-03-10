@@ -29,18 +29,20 @@ colors = [
           '#b0b060', # Olive
          ]
 
-def generate_graph(ifpath, ofpath, title, ylabel):
+def generate_graph(ifpath, ofpath, title, ylabel, logx=False):
     # Load some fake data.
     data = np.loadtxt(ifpath, skiprows=1)
 
     X = data[:, 0]
     Xmin = np.min(X)
     Xmax = np.max(X)
+    Xdif = Xmax - Xmin
     print 'x in [%f, %f]' % (Xmin, Xmax)
 
     Y = data[:, 1:]
     Ymin = np.min(Y)
     Ymax = np.max(Y)
+    Ydif = Ymax - Ymin
     print 'y in [%f, %f]' % (Ymin, Ymax)
     (M, N) = Y.shape
 
@@ -74,6 +76,14 @@ def generate_graph(ifpath, ofpath, title, ylabel):
             label=ylabels[i],
         )
 
+    # Set y-axis limits for more space above and below
+    Ypad = .18
+    plt.ylim((Ymin - Ypad*Ydif, Ymax + Ypad*Ydif))
+
+    # Set x-axis to log-scale if necessary
+    if logx:
+        plt.xscale('log')
+
     # Set title
     ax1.set_title(label = title,
         size = 'large',
@@ -100,94 +110,106 @@ def generate_graph(ifpath, ofpath, title, ylabel):
     #ax1.legend(loc='center left', fontsize='small', bbox_to_anchor=(1, 0.5))
 
     ## Add annotations automatically. A 2-pass procedure.
+    # Pass 0: Normalize input data
+    if logx:
+        X = np.log(X)
+        Xmin = min(X)
+        Xmax = max(X)
+        Xdif = Xmax - Xmin
+    X = (X - Xmin) / Xdif
+    Y = (Y - Ymin) / Ydif
+
+    def denormalize_coord(x, y):
+        x = x * Xdif + Xmin
+        y = y * Ydif + Ymin
+        if logx:
+            x = np.exp(x)
+        return (x, y)
+
     # Pass 1: Invalidate areas where data points are
     M_g = 10
     N_g = 9
-    chk_grid = np.zeros((M_g + 1, N_g + 1)) # Grid
-    dY = (Ymax - Ymin) / M_g
-    _Ymin = Ymin - dY
-    _Ymax = Ymax + dY
-    plt.ylim((_Ymin, _Ymax)) # Set Y limits manually for boring or single-data plots
-    dY = (_Ymax - _Ymin) / M_g
-    dX = (Xmax - Xmin) / N_g
-    for (j, _), y in np.ndenumerate(Y):
-        x = X[j]
-        chk_grid[round((y-_Ymin)/dY), round((x-Xmin)/dX)] += 1
+    chk_grid = np.zeros((M_g + 1, N_g + 1), dtype=np.uint8) # Grid
+
+    dY = (1. + (2.*Ypad)) / M_g
+    dX = 1. / N_g
+
+    for c in range(N):
+        _X = np.linspace(0., 1., N_g*2)
+        _Y = np.interp(_X, X, Y[:, c])
+        for (i, y) in enumerate(_Y):
+            x = _X[i]
+            chk_grid[round((y + Ypad) / dY), round(x/dX)] += 1
+
+    print np.flipud(np.int_(chk_grid))
 
     # Pass 2: Pick valid area data point at random
-    excl_Nx = int(M * .20) # Exclude 20% of boundary points to avoid label
+    excl_Nx = int(M * .20) # Exclude 40% of boundary points to avoid label
                            # cutoff due to being on graph edge
-    for i in range(N):
-        ys = Y[excl_Nx:-excl_Nx, i]
+
+    # Calculate score for coordinates x and y
+    neighbours8 = [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]
+    def calcScore(x, y):
+        j = round((y + Ypad) / dY)
+        i = round(x / dX)
+        if j < 0 or i < 0 or j >= M_g or i >= N_g:
+            return 0
+        score = 2 * chk_grid[j, i]
+        for (dj, di) in neighbours8:
+            score += chk_grid[j + dj, i + di]
+        return 1. / score # Invert. Less counts is better score.
+
+    for c in range(N):
+        ys = Y[excl_Nx:-excl_Nx, c]
         grads = np.gradient(ys)
 
-        # Stochastic selection of data point to label
-        while True:
-            #print chk_grid
+        # Calculate attractiveness score for candidate locations based on data
+        # points as reference
+        candidates = []
+        for (i, y) in enumerate(ys):
 
-            j = random.randint(0, len(ys) - 1)  # Pick random point
-            y = ys[j]
-            x = X[j + excl_Nx]                  # We excluded boundary points,
+            x = X[i + excl_Nx]                  # We excluded boundary points,
                                                 # so fix indexing
 
-            d = grads[j]                    # Gradient at point
+            d = grads[i]                    # Gradient at point
             s = 1 if d == 0 else np.sign(d) # Sign of gradient at point
 
-            d_ = math.sqrt(abs(d)) * .3
-            dsx = -s * (.2*dX)
-            dsy =  s * (.35*dY + d_)
+            d_ = math.sqrt(abs(d)) * .08
+            dsx = -s * (.3 * dX + d_)
+            dsy =      (.5 * dY)
             #print d, x, y, dsx, dsy, dX, dY
 
-            gj1 = round((y - _Ymin) / dY)
-            gi1 = round((x - Xmin) / dX)
-            gj2 = round((y + dsy - _Ymin) / dY)
-            gi2 = round((x + dsx - Xmin) / dX)
-            gj3 = round((y - dsy - _Ymin) / dY)
-            gi3 = round((x - dsx - Xmin) / dX)
-            try: # Skip in case out-of-bounds error for indexing grid
-                if gj1 >= 0 and gi1 >= 0 and gj2 >= 0 and gi2 >= 0 and \
-                   (chk_grid[gj1, gi1] < 2) and (chk_grid[gj2, gj2] < 1):
-                    # Inc occupation count for self and 8 neighbours
-                    chk_grid[gj2, gi2] += 1
-                    chk_grid[gj2 + 1, gi2] += 1
-                    chk_grid[gj2 - 1, gi2] += 1
-                    chk_grid[gj2, gi2 + 1] += 1
-                    chk_grid[gj2, gi2 - 1] += 1
-                    chk_grid[gj2 + 1, gi2 + 1] += 1
-                    chk_grid[gj2 - 1, gi2 + 1] += 1
-                    chk_grid[gj2 + 1, gi2 - 1] += 1
-                    chk_grid[gj2 - 1, gi2 - 1] += 1
-                    y += dsy
-                    x += dsx
-                    break
-            except: pass
+            candidates.append((calcScore(x + dsx, y + dsy), x + dsx, y + dsy))
+            candidates.append((calcScore(x - dsx, y - dsy), x - dsx, y - dsy))
 
-            try:
-                if gj1 >= 0 and gi1 >= 0 and gj3 >= 0 and gi3 >= 0 and \
-                   (chk_grid[gj1, gi1] < 2) and (chk_grid[gj3, gi3] < 1):
-                    chk_grid[gj3, gi3] += 1
-                    chk_grid[gj3 + 1, gi3] += 1
-                    chk_grid[gj3 - 1, gi3] += 1
-                    chk_grid[gj3, gi3 + 1] += 1
-                    chk_grid[gj3, gi3 - 1] += 1
-                    chk_grid[gj3 + 1, gi3 + 1] += 1
-                    chk_grid[gj3 - 1, gi3 + 1] += 1
-                    chk_grid[gj3 + 1, gi3 - 1] += 1
-                    chk_grid[gj3 - 1, gi3 - 1] += 1
-                    y -= dsy
-                    x -= dsx
-                    break
-            except: pass
+        candidates.sort(key=lambda coord: coord[0], reverse=True)
+        (_, x, y) = candidates[0]
+        gj = round((y + Ypad) / dY)
+        gi = round(x / dX)
 
+        chk_grid[gj, gi] += 1
+        for (dj, di) in neighbours8:
+            chk_grid[gj + dj, gi + di] += 1 # Increase occupation flag for self
 
-        print 'Placing label at (%f, %f) for "%s"' % (x, y, ylabels[i])
-        ax1.annotate(ylabels[i],
+        (x, y) = denormalize_coord(x, y) # Get actual x, y
+
+        print 'Placing label at (%f, %f) for "%s"' % (x, y, ylabels[c])
+        ax1.annotate(ylabels[c],
             xy = (x, y),
             xytext = (x, y),
-            color = colors[i],
+            color = colors[c],
             horizontalalignment = 'center',
             verticalalignment = 'center',
         )
+
+    # Restore (denormalize) data
+    X = X * Xdif + Xmin
+    if logx:
+        X = np.exp(X)
+        Xmin = min(X)
+        Xmax = max(X)
+        Xdif = Xmax - Xmin
+    Y = Y * Ydif + Ymin
 
     ## Alternatively, set annotations (by hand)
     #ax1.annotate(ylabels[0], xy=(n[5], a[5]), xytext=(n[5], a[5]+0.3), color=colors[0])
@@ -240,6 +262,7 @@ def main():
                        'first column is X-axis data')
     parser.add_argument('-t', '--title', help='Title label')
     parser.add_argument('-y', '--ylabel', help='Y-axis label')
+    parser.add_argument('-l', '--logx', action='store_const', const=True, help='Make x-axis log-scale')
     parser.add_argument('-o', '--output', help='Output file path')
 
     args = vars(parser.parse_args())
@@ -251,7 +274,7 @@ def main():
     ylabel = args['ylabel'] if args['ylabel'] else '[Gflop / s]'
 
     # Plot graph and save output
-    generate_graph(ifpath, ofpath, title, ylabel)
+    generate_graph(ifpath, ofpath, title, ylabel, logx=bool(args['logx']))
 
 
 # Run main function if run as main program
