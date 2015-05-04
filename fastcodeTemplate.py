@@ -29,7 +29,7 @@ colors = [
           '#b0b060', # Olive
          ]
 
-def generate_graph(ifpath, ofpath, title, ylabel, logx=False):
+def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
     # Load some fake data.
     data = np.loadtxt(ifpath, skiprows=1)
 
@@ -40,6 +40,7 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False):
     print 'x in [%f, %f]' % (Xmin, Xmax)
 
     Y = data[:, 1:]
+    Y = Y * yscale
     Ymin = np.min(Y)
     Ymax = np.max(Y)
     Ydif = Ymax - Ymin
@@ -260,21 +261,23 @@ def main():
                        help='Input data file, header (first row) expected. ' +
                        'Entries on a row are delimited by tabstops, and the ' +
                        'first column is X-axis data')
-    parser.add_argument('-t', '--title', help='Title label')
-    parser.add_argument('-y', '--ylabel', help='Y-axis label')
-    parser.add_argument('-l', '--logx', action='store_const', const=True, help='Make x-axis log-scale')
-    parser.add_argument('-o', '--output', help='Output file path')
+    parser.add_argument('-t',  '--title', help='Title label')
+    parser.add_argument('-y',  '--ylabel', help='Y-axis label')
+    parser.add_argument('-Sy', '--yscale', help='Y-values scaling')
+    parser.add_argument('-l',  '--logx', action='store_const', const=True, help='Make x-axis log-scale')
+    parser.add_argument('-o',  '--output', help='Output file path')
 
     args = vars(parser.parse_args())
 
     # Set default output file path and title
     ifpath = args['input-file']
     ofpath = args['output'] if args['output'] else re.sub(r'\.[^\.]*$', '.eps', ifpath)
-    title = args['title'] if args['title'] else re.sub(r'\..*$', '', ifpath)
+    title  = args['title']  if args['title']  else re.sub(r'\..*$', '', ifpath)
     ylabel = args['ylabel'] if args['ylabel'] else '[Gflop / s]'
 
     # Plot graph and save output
-    generate_graph(ifpath, ofpath, title, ylabel, logx=bool(args['logx']))
+    generate_graph(ifpath, ofpath, title, ylabel, logx=bool(args['logx']),
+                   yscale=float(args['yscale'] if args['yscale'] else 1.0))
 
 
 # Run main function if run as main program
