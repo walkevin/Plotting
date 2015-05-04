@@ -160,7 +160,7 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False):
         return 1. / score # Invert. Less counts is better score.
 
     for c in range(N):
-        ys = Y[excl_Nx:-excl_Nx, c]
+        ys = Y[excl_Nx:-excl_Nx, c] if excl_Nx > 0 else Y[:, c]
         grads = np.gradient(ys)
 
         # Calculate attractiveness score for candidate locations based on data
