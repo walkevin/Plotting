@@ -250,7 +250,8 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
     # Save the plot
     plt.savefig(ofpath)
 
-    #plt.show()
+    # Show output
+    plt.show()
 
 
 def main():
