@@ -33,13 +33,6 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
     # Load some data.
     data = np.loadtxt(ifpath, skiprows=1)
 
-    # Try to load error data
-    try:
-        edata = np.loadtxt(ifpath[:-4] + '.err', skiprows=1)[:, 1:]
-        edata = edata * yscale
-    except:
-        edata = None
-
     X = data[:, 0]
     Xmin = np.min(X)
     Xmax = np.max(X)
@@ -53,6 +46,13 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
     Ydif = Ymax - Ymin
     print 'y in [%f, %f]' % (Ymin, Ymax)
     (M, N) = Y.shape
+
+    # Try to load error data
+    try:
+        edata = np.loadtxt(ifpath[:-4] + '.err', skiprows=1)[:, 1:]
+        edata = edata * yscale
+    except:
+        edata = np.zeros(Y.shape)
 
     #n = data[:,0]
     #a = data[:,1]
