@@ -30,8 +30,15 @@ colors = [
          ]
 
 def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
-    # Load some fake data.
+    # Load some data.
     data = np.loadtxt(ifpath, skiprows=1)
+
+    # Try to load error data
+    try:
+        edata = np.loadtxt(ifpath[:-4] + '.err', skiprows=1)[:, 1:]
+        edata = edata * yscale
+    except:
+        edata = None
 
     X = data[:, 0]
     Xmin = np.min(X)
@@ -71,9 +78,11 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
 
     # Create plots with pre-defined labels.
     for i in range(N):
-        ax1.plot(X, Y[:, i], colors[i],
-            marker='o',
-            markeredgecolor=colors[i],
+        print ylabels[i], Y[:, i], edata[:, i]
+        color = colors[i]
+        ax1.errorbar(X, Y[:, i], color=color,
+            yerr=edata[:, i], ecolor=color,
+            marker='o', markeredgecolor=color,
             label=ylabels[i],
         )
 
