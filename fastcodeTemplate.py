@@ -27,6 +27,8 @@ colors = [
           '#ff80ff', # Pink
           '#60b0b0', # Cyan
           '#b0b060', # Olive
+          '#f4a460', # Sandy Brown
+          '#333333', # Dark Gray
          ]
 
 def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
@@ -78,7 +80,7 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
 
     # Create plots with pre-defined labels.
     for i in range(N):
-        print ylabels[i], Y[:, i], edata[:, i]
+        #print ylabels[i], Y[:, i], edata[:, i]
         color = colors[i]
         ax1.errorbar(X, Y[:, i], color=color,
             yerr=edata[:, i], ecolor=color,
@@ -137,9 +139,13 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
         return (x, y)
 
     # Pass 1: Invalidate areas where data points are
-    M_g = 10
-    N_g = 9
+    M_g = 14 # Rows
+    N_g = 9  # Cols
     chk_grid = np.zeros((M_g + 1, N_g + 1), dtype=np.uint8) # Grid
+    interp_X = np.linspace(0., 1., M_g + 1)
+    interp_Y = np.zeros((M_g + 1, N), dtype=np.float64)
+    for c in range(N):
+        interp_Y[:, c] = np.interp(interp_X, X, Y[:, c])
 
     dY = (1. + (2.*Ypad)) / M_g
     dX = 1. / N_g
@@ -149,13 +155,13 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
         _Y = np.interp(_X, X, Y[:, c])
         for (i, y) in enumerate(_Y):
             x = _X[i]
-            chk_grid[round((y + Ypad) / dY), round(x/dX)] += 1
+            chk_grid[round((y + Ypad) / dY), round(x/dX)] += 3
 
     print np.flipud(np.int_(chk_grid))
 
     # Pass 2: Pick valid area data point at random
-    excl_Nx = int(M * .20) # Exclude 40% of boundary points to avoid label
-                           # cutoff due to being on graph edge
+    excl_Nx = int(M_g * .20) # Exclude 40% of boundary points to avoid label
+                             # cutoff due to being on graph edge
 
     # Calculate score for coordinates x and y
     neighbours8 = [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]
@@ -167,26 +173,26 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
         score = 2 * chk_grid[j, i]
         for (dj, di) in neighbours8:
             score += chk_grid[j + dj, i + di]
-        return 1. / score # Invert. Less counts is better score.
+
+        return 1. / score if score > 0 else 0 # Invert. Less counts is better score.
 
     for c in range(N):
-        ys = Y[excl_Nx:-excl_Nx, c] if excl_Nx > 0 else Y[:, c]
+        ys = interp_Y[excl_Nx:-excl_Nx, c] if excl_Nx > 0 else interp_Y[:, c]
         grads = np.gradient(ys)
 
-        # Calculate attractiveness score for candidate locations based on data
+        # Calculate attractiveness score for candidate locations based on grid
         # points as reference
         candidates = []
         for (i, y) in enumerate(ys):
 
-            x = X[i + excl_Nx]                  # We excluded boundary points,
-                                                # so fix indexing
+            x = interp_X[i + excl_Nx] # We excluded boundary points, so fix indexing
 
             d = grads[i]                    # Gradient at point
             s = 1 if d == 0 else np.sign(d) # Sign of gradient at point
 
-            d_ = math.sqrt(abs(d)) * .08
-            dsx = -s * (.3 * dX + d_)
-            dsy =      (.5 * dY)
+            d_ = math.sqrt(abs(d)) * .011 * len(ylabels[c])
+            dsx =  -s * d_
+            dsy = .06 + d_
             #print d, x, y, dsx, dsy, dX, dY
 
             candidates.append((calcScore(x + dsx, y + dsy), x + dsx, y + dsy))
@@ -199,7 +205,7 @@ def generate_graph(ifpath, ofpath, title, ylabel, logx=False, yscale=1.0):
 
         chk_grid[gj, gi] += 1
         for (dj, di) in neighbours8:
-            chk_grid[gj + dj, gi + di] += 1 # Increase occupation flag for self
+            chk_grid[gj + dj, gi + di] += 5 # Increase occupation flag for self
 
         (x, y) = denormalize_coord(x, y) # Get actual x, y
 
